@@ -53,7 +53,7 @@ class Neo4jConnection:
                 )
                 # Verify connectivity
                 self._driver.verify_connectivity()
-                logger.info(f"Connected to Neo4j at {self.uri}")
+                logger.debug(f"Connected to Neo4j at {self.uri}")
             except ServiceUnavailable as e:
                 logger.error(f"Failed to connect to {self.uri}: {e}")
                 raise ConnectionError(
@@ -73,7 +73,7 @@ class Neo4jConnection:
         if self._driver is not None:
             self._driver.close()
             self._driver = None
-            logger.info(f"Closed connection to {self.uri}")
+            logger.debug(f"Closed connection to {self.uri}")
 
     def get_session(self) -> Session:
         """Get a new session for the database."""
@@ -236,10 +236,10 @@ def create_index(
 
     try:
         conn.execute_with_retry(query, write=True)
-        logger.info(f"Created index: {index_name}")
+        logger.debug(f"Created index: {index_name}")
     except ClientError as e:
         if "already exists" in str(e).lower():
-            logger.info(f"Index {index_name} already exists, skipping")
+            logger.debug(f"Index {index_name} already exists, skipping")
         else:
             raise
 
@@ -270,10 +270,10 @@ def create_constraint(
 
     try:
         conn.execute_with_retry(query, write=True)
-        logger.info(f"Created constraint: {constraint_name}")
+        logger.debug(f"Created constraint: {constraint_name}")
     except ClientError as e:
         if "already exists" in str(e).lower():
-            logger.info(f"Constraint {constraint_name} already exists, skipping")
+            logger.debug(f"Constraint {constraint_name} already exists, skipping")
         else:
             raise
 
@@ -295,10 +295,20 @@ def get_node_count(conn: Neo4jConnection, label: Optional[str] = None) -> int:
 
 
 def get_relationship_count(
-    conn: Neo4jConnection, rel_type: Optional[str] = None
+    conn: Neo4jConnection,
+    rel_type: Optional[str] = None,
+    labels: Optional[List[str]] = None,
 ) -> int:
-    """Get count of relationships, optionally filtered by type."""
-    if rel_type:
+    """Get count of relationships, optionally filtered by type and endpoint labels."""
+    if rel_type and labels:
+        label_clause_a = " OR ".join([f"a:{lbl}" for lbl in labels])
+        label_clause_b = " OR ".join([f"b:{lbl}" for lbl in labels])
+        query = (
+            f"MATCH (a)-[r:{rel_type}]->(b) "
+            f"WHERE ({label_clause_a}) AND ({label_clause_b}) "
+            f"RETURN count(r) as count"
+        )
+    elif rel_type:
         query = f"MATCH ()-[r:{rel_type}]->() RETURN count(r) as count"
     else:
         query = "MATCH ()-[r]->() RETURN count(r) as count"
@@ -318,7 +328,7 @@ def get_database_stats(
 
     stats = {
         "total_nodes": sum(get_node_count(conn, l) for l in target_labels),
-        "total_relationships": sum(get_relationship_count(conn, rt) for rt in target_rel_types),
+        "total_relationships": 0,
         "labels": {},
         "relationship_types": {},
     }
@@ -327,7 +337,9 @@ def get_database_stats(
         stats["labels"][label] = get_node_count(conn, label)
 
     for rel_type in target_rel_types:
-        stats["relationship_types"][rel_type] = get_relationship_count(conn, rel_type)
+        count = get_relationship_count(conn, rel_type, labels=labels)
+        stats["relationship_types"][rel_type] = count
+        stats["total_relationships"] += count
 
     return stats
 

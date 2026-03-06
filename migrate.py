@@ -55,16 +55,22 @@ from utils.neo4j_utils import (
 )
 from utils.checkpoint import CheckpointManager
 
+# Suppress noisy Neo4j driver logs immediately (before any connections)
+logging.getLogger("neo4j").setLevel(logging.WARNING)
+logging.getLogger("neo4j.io").setLevel(logging.WARNING)
+logging.getLogger("neo4j.pool").setLevel(logging.WARNING)
+
+
 # Configure logging
 def setup_logging(verbose: bool = False, log_file: Optional[str] = None):
     """Configure logging for the migration script."""
     log_level = logging.DEBUG if verbose else logging.INFO
-    
+
     handlers = [logging.StreamHandler(sys.stdout)]
-    
+
     if log_file:
         handlers.append(logging.FileHandler(log_file))
-    
+
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -396,7 +402,7 @@ def verify_migration(
             )
             success = False
         else:
-            logger.info(f"✓ Label '{label}': {source_count} nodes verified")
+            logger.info(f"[OK] Label '{label}': {source_count} nodes verified")
     
     # Compare relationship counts
     for rel_type, source_count in source_stats["relationship_types"].items():
@@ -408,7 +414,7 @@ def verify_migration(
             )
             success = False
         else:
-            logger.info(f"✓ Relationship '{rel_type}': {source_count} verified")
+            logger.info(f"[OK] Relationship '{rel_type}': {source_count} verified")
     
     return success
 

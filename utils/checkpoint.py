@@ -35,7 +35,7 @@ class CheckpointManager:
             try:
                 with open(self.checkpoint_file, "r") as f:
                     data = json.load(f)
-                    logger.info(f"Loaded checkpoint from {self.checkpoint_file}")
+                    logger.debug(f"Loaded checkpoint from {self.checkpoint_file}")
                     return data
             except (json.JSONDecodeError, IOError) as e:
                 logger.warning(f"Failed to load checkpoint: {e}")
@@ -103,7 +103,7 @@ class CheckpointManager:
         if label not in self._data["completed_labels"]:
             self._data["completed_labels"].append(label)
             self._save()
-            logger.info(f"Completed migration for label: {label}")
+            logger.debug(f"Completed migration for label: {label}")
     
     def is_label_complete(self, label: str) -> bool:
         """Check if a label has been fully migrated."""
@@ -140,7 +140,7 @@ class CheckpointManager:
         if rel_type not in self._data["completed_rel_types"]:
             self._data["completed_rel_types"].append(rel_type)
             self._save()
-            logger.info(f"Completed migration for relationship type: {rel_type}")
+            logger.debug(f"Completed migration for relationship type: {rel_type}")
     
     def is_rel_type_complete(self, rel_type: str) -> bool:
         """Check if a relationship type has been fully migrated."""
@@ -186,4 +186,4 @@ class CheckpointManager:
         }
         if self.checkpoint_file.exists():
             self.checkpoint_file.unlink()
-        logger.info("Cleared checkpoint data")
+        logger.debug("Cleared checkpoint data")
