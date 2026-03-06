@@ -1,68 +1,36 @@
 """
-Neo4j Migration Configuration
+Neo4j Migration Configuration Loader
 
-Copy this file to config_local.py and update with your actual credentials.
-Do NOT commit config_local.py to version control.
+Edit config.json to set your credentials and migration settings.
+Do NOT commit config.json with real passwords to version control.
 """
 
-import os
-from dotenv import load_dotenv
+import json
+import pathlib
 
-# Load environment variables from .env file if it exists
-load_dotenv()
+_cfg = json.loads((pathlib.Path(__file__).parent / "config.json").read_text())
 
-# =============================================================================
-# SOURCE DATABASE CONFIGURATION (Neo4j 4.4 CE)
-# =============================================================================
-SOURCE_URI = os.getenv("SOURCE_NEO4J_URI", "bolt://source-server:7687")
-SOURCE_USER = os.getenv("SOURCE_NEO4J_USER", "neo4j")
-SOURCE_PASSWORD = os.getenv("SOURCE_NEO4J_PASSWORD", "your-source-password")
-SOURCE_DATABASE = os.getenv("SOURCE_NEO4J_DATABASE", "neo4j")
+# Source database
+SOURCE_URI = _cfg["source"]["uri"]
+SOURCE_USER = _cfg["source"]["user"]
+SOURCE_PASSWORD = _cfg["source"]["password"]
+SOURCE_DATABASE = _cfg["source"]["database"]
 
-# =============================================================================
-# TARGET DATABASE CONFIGURATION (Neo4j 4.4 CE)
-# =============================================================================
-TARGET_URI = os.getenv("TARGET_NEO4J_URI", "bolt://target-server:7687")
-TARGET_USER = os.getenv("TARGET_NEO4J_USER", "neo4j")
-TARGET_PASSWORD = os.getenv("TARGET_NEO4J_PASSWORD", "your-target-password")
-TARGET_DATABASE = os.getenv("TARGET_NEO4J_DATABASE", "neo4j")
+# Target database
+TARGET_URI = _cfg["target"]["uri"]
+TARGET_USER = _cfg["target"]["user"]
+TARGET_PASSWORD = _cfg["target"]["password"]
+TARGET_DATABASE = _cfg["target"]["database"]
 
-# =============================================================================
-# MIGRATION SETTINGS
-# =============================================================================
+# Migration settings
+BATCH_SIZE = _cfg["migration"]["batch_size"]
+MAX_RETRIES = _cfg["migration"]["max_retries"]
+CONNECTION_TIMEOUT = _cfg["migration"]["connection_timeout"]
+DRY_RUN = _cfg["migration"]["dry_run"]
+VERBOSE = _cfg["migration"]["verbose"]
+LABELS_TO_MIGRATE = _cfg["migration"]["labels_to_migrate"]
+RELATIONSHIP_TYPES_TO_MIGRATE = _cfg["migration"]["relationship_types_to_migrate"]
 
-# Batch size for node/relationship migration
-# - For datasets < 1M nodes: 1000-5000 works well
-# - For datasets > 100M nodes (like 114M): 500-1000 recommended
-# - Reduce if you encounter memory issues or timeouts
-BATCH_SIZE = int(os.getenv("MIGRATION_BATCH_SIZE", "500"))
-
-# Maximum retries for transient errors
-MAX_RETRIES = int(os.getenv("MIGRATION_MAX_RETRIES", "3"))
-
-# Connection timeout in seconds
-CONNECTION_TIMEOUT = int(os.getenv("MIGRATION_TIMEOUT", "60"))
-
-# Enable dry-run mode (no changes to target)
-DRY_RUN = os.getenv("MIGRATION_DRY_RUN", "false").lower() == "true"
-
-# Enable verbose logging
-VERBOSE = os.getenv("MIGRATION_VERBOSE", "true").lower() == "true"
-
-# =============================================================================
-# OPTIONAL: SELECTIVE MIGRATION
-# =============================================================================
-
-# Specify labels to migrate (empty list = all labels)
-# Example: ["User", "Product", "Order"]
-LABELS_TO_MIGRATE = []
-
-# Specify relationship types to migrate (empty list = all types)
-# Example: ["PURCHASED", "FOLLOWS", "CREATED"]
-RELATIONSHIP_TYPES_TO_MIGRATE = []
-
-# =============================================================================
-# LOGGING CONFIGURATION
-# =============================================================================
-LOG_FILE = os.getenv("MIGRATION_LOG_FILE", "migration.log")
-LOG_LEVEL = os.getenv("MIGRATION_LOG_LEVEL", "INFO")
+# Logging
+LOG_FILE = _cfg["logging"]["log_file"]
+LOG_LEVEL = _cfg["logging"]["log_level"]

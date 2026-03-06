@@ -1,0 +1,27 @@
+{
+  "source": {
+    "uri": "bolt://source-server:7687",
+    "user": "neo4j",
+    "password": "your-source-password",
+    "database": "neo4j"
+  },
+  "target": {
+    "uri": "bolt://target-server:7687",
+    "user": "neo4j",
+    "password": "your-target-password",
+    "database": "neo4j"
+  },
+  "migration": {
+    "batch_size": 500,
+    "max_retries": 3,
+    "connection_timeout": 60,
+    "dry_run": false,
+    "verbose": true,
+    "labels_to_migrate": [],
+    "relationship_types_to_migrate": []
+  },
+  "logging": {
+    "log_file": "migration.log",
+    "log_level": "INFO"
+  }
+}

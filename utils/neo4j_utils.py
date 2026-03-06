@@ -417,6 +417,7 @@ def check_nodes_exist_batch(
     query = f"""
     UNWIND $ids as id
     OPTIONAL MATCH (n:{label} {{{identifier_prop}: id}})
+    WITH id, n
     WHERE n IS NOT NULL
     RETURN id as identifier
     """

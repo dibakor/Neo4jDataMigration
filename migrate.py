@@ -142,19 +142,16 @@ def migrate_schema(
     dry_run: bool = False,
 ) -> None:
     """Migrate indexes and constraints from source to target."""
-    logger.info("Starting schema migration...")
-    
-    # Migrate indexes
-    logger.info("Migrating indexes...")
+    logger.info("Migrating schema (indexes and constraints)...")
+
     indexes = get_indexes(source)
     for index in indexes:
         if index.get("type") == "LOOKUP":
-            # Skip internal lookup indexes
             continue
-        
+
         labels = index.get("labelsOrTypes", [])
         properties = index.get("properties", [])
-        
+
         if labels and properties:
             try:
                 create_index(
@@ -165,9 +162,7 @@ def migrate_schema(
                 )
             except Exception as e:
                 logger.warning(f"Failed to create index {index.get('name')}: {e}")
-    
-    # Migrate constraints
-    logger.info("Migrating constraints...")
+
     constraints = get_constraints(source)
     for constraint in constraints:
         labels = constraint.get("labelsOrTypes", [])
@@ -187,8 +182,6 @@ def migrate_schema(
                 logger.warning(
                     f"Failed to create constraint {constraint.get('name')}: {e}"
                 )
-    
-    logger.info("Schema migration completed.")
 
 
 def migrate_nodes(
@@ -218,9 +211,6 @@ def migrate_nodes(
         filter_new_nodes_via_db,
     )
     
-    mode = "incremental" if incremental else "full"
-    logger.info(f"Starting node migration (mode: {mode})...")
-    
     for label in labels:
         # Check if already completed (for resume)
         if checkpoint and checkpoint.is_label_complete(label):
@@ -240,13 +230,12 @@ def migrate_nodes(
         if incremental:
             identifier_prop = get_node_identifier_property(source, label)
             if identifier_prop:
-                logger.info(
+                logger.debug(
                     f"Using '{identifier_prop}' as identifier for label '{label}'"
                 )
-                # Log target count for context
                 target_count = get_existing_node_count(target, label)
                 logger.info(
-                    f"Source: {total_count:,} nodes, Target: {target_count:,} nodes"
+                    f"[{label}] Source: {total_count:,} nodes, Target: {target_count:,} nodes"
                 )
             else:
                 progress.add_warning(
@@ -261,12 +250,7 @@ def migrate_nodes(
             if start_offset > 0:
                 logger.info(f"Resuming '{label}' from offset {start_offset:,}")
         
-        logger.info(f"Processing {total_count:,} nodes with label '{label}'...")
-        
-        # Track timing for ETA
-        import time
-        start_time = time.time()
-        processed = start_offset
+        logger.debug(f"Processing {total_count:,} nodes with label '{label}'...")
         
         with tqdm(
             total=total_count,
@@ -311,25 +295,11 @@ def migrate_nodes(
                     pbar.update(len(nodes))
                     skip += batch_size
                     batch_count += 1
-                    processed += len(nodes)
                     
                     # Update checkpoint periodically (every 10 batches)
                     if checkpoint and batch_count % 10 == 0:
                         checkpoint.update_label_progress(
                             label, skip, batch_migrated, batch_skipped
-                        )
-                    
-                    # Log progress every 100 batches
-                    if batch_count % 100 == 0:
-                        elapsed = time.time() - start_time
-                        rate = processed / elapsed if elapsed > 0 else 0
-                        remaining = total_count - processed
-                        eta = remaining / rate if rate > 0 else 0
-                        logger.info(
-                            f"Progress: {processed:,}/{total_count:,} "
-                            f"({100*processed/total_count:.1f}%) - "
-                            f"Rate: {rate:,.0f} nodes/sec - "
-                            f"ETA: {eta/60:.1f} min"
                         )
                     
                 except MigrationError as e:
@@ -341,8 +311,7 @@ def migrate_nodes(
             checkpoint.mark_label_complete(label)
     
     logger.info(
-        f"Node migration completed. "
-        f"Migrated: {progress.nodes_migrated:,}, Skipped: {progress.nodes_skipped:,}"
+        f"Nodes — migrated: {progress.nodes_migrated:,}, skipped: {progress.nodes_skipped:,}"
     )
 
 
@@ -355,16 +324,12 @@ def migrate_relationships(
     dry_run: bool = False,
 ) -> None:
     """Migrate all relationships from source to target."""
-    logger.info("Starting relationship migration...")
-    
     for rel_type in rel_types:
         total_count = get_relationship_count(source, rel_type)
-        
+
         if total_count == 0:
-            logger.info(f"No relationships of type '{rel_type}', skipping.")
+            logger.debug(f"No relationships of type '{rel_type}', skipping.")
             continue
-        
-        logger.info(f"Migrating {total_count} relationships of type '{rel_type}'...")
         
         with tqdm(
             total=total_count, desc=f"Migrating {rel_type}", unit="rels"
@@ -391,9 +356,7 @@ def migrate_relationships(
                     )
                     skip += batch_size  # Skip failed batch and continue
     
-    logger.info(
-        f"Relationship migration completed. Total: {progress.relationships_migrated}"
-    )
+    logger.info(f"Relationships — migrated: {progress.relationships_migrated:,}")
 
 
 def verify_migration(
@@ -588,14 +551,14 @@ def main():
             config.RELATIONSHIP_TYPES_TO_MIGRATE or get_all_relationship_types(source)
         )
         
-        logger.info(f"Labels to migrate: {labels}")
-        logger.info(f"Relationship types to migrate: {rel_types}")
-        
-        # Pre-migration stats
-        logger.info("\n--- Source Database Statistics ---")
+        logger.debug(f"Labels to migrate: {labels}")
+        logger.debug(f"Relationship types to migrate: {rel_types}")
+
         source_stats = get_database_stats(source)
-        logger.info(f"Total nodes: {source_stats['total_nodes']}")
-        logger.info(f"Total relationships: {source_stats['total_relationships']}")
+        logger.info(
+            f"Source DB — nodes: {source_stats['total_nodes']:,}, "
+            f"relationships: {source_stats['total_relationships']:,}"
+        )
         
         # Phase 1: Schema Migration
         if not args.skip_schema:
