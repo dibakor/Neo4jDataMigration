@@ -363,12 +363,14 @@ def verify_migration(
     source: Neo4jConnection,
     target: Neo4jConnection,
     progress: MigrationProgress,
+    labels: Optional[List[str]] = None,
+    rel_types: Optional[List[str]] = None,
 ) -> bool:
     """Verify that the migration was successful."""
     logger.info("Verifying migration...")
-    
-    source_stats = get_database_stats(source)
-    target_stats = get_database_stats(target)
+
+    source_stats = get_database_stats(source, labels=labels, rel_types=rel_types)
+    target_stats = get_database_stats(target, labels=labels, rel_types=rel_types)
     
     success = True
     
@@ -554,7 +556,7 @@ def main():
         logger.debug(f"Labels to migrate: {labels}")
         logger.debug(f"Relationship types to migrate: {rel_types}")
 
-        source_stats = get_database_stats(source)
+        source_stats = get_database_stats(source, labels=labels, rel_types=rel_types)
         logger.info(
             f"Source DB — nodes: {source_stats['total_nodes']:,}, "
             f"relationships: {source_stats['total_relationships']:,}"
@@ -591,7 +593,7 @@ def main():
         
         # Verification
         if not args.skip_verify and not dry_run:
-            verify_migration(source, target, progress)
+            verify_migration(source, target, progress, labels=labels, rel_types=rel_types)
         
         progress.finish()
         

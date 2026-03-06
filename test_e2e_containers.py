@@ -364,6 +364,8 @@ class TestSchemaMigration:
 
     def test_indexes_migrated(self, source_conn, target_conn, clean_target):
         migrate_schema(source_conn, target_conn, dry_run=False)
+        # Wait for indexes to come ONLINE (creation is asynchronous)
+        target_conn.execute_with_retry("CALL db.awaitIndexes(300)", write=True)
 
         target_indexes = get_indexes(target_conn)
         non_lookup = [

@@ -292,21 +292,26 @@ def get_relationship_count(
     return result[0]["count"] if result else 0
 
 
-def get_database_stats(conn: Neo4jConnection) -> Dict[str, Any]:
-    """Get comprehensive database statistics."""
+def get_database_stats(
+    conn: Neo4jConnection,
+    labels: Optional[List[str]] = None,
+    rel_types: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Get database statistics, optionally filtered to specific labels/rel types."""
+    target_labels = labels or get_all_labels(conn)
+    target_rel_types = rel_types or get_all_relationship_types(conn)
+
     stats = {
-        "total_nodes": get_node_count(conn),
-        "total_relationships": get_relationship_count(conn),
+        "total_nodes": sum(get_node_count(conn, l) for l in target_labels),
+        "total_relationships": sum(get_relationship_count(conn, rt) for rt in target_rel_types),
         "labels": {},
         "relationship_types": {},
     }
 
-    # Count by label
-    for label in get_all_labels(conn):
+    for label in target_labels:
         stats["labels"][label] = get_node_count(conn, label)
 
-    # Count by relationship type
-    for rel_type in get_all_relationship_types(conn):
+    for rel_type in target_rel_types:
         stats["relationship_types"][rel_type] = get_relationship_count(conn, rel_type)
 
     return stats

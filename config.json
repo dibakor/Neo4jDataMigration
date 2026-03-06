@@ -17,7 +17,10 @@
     "connection_timeout": 60,
     "dry_run": false,
     "verbose": true,
-    "labels_to_migrate": [],
+    "labels_to_migrate": [
+      "Person",
+      "Movie"
+    ],
     "relationship_types_to_migrate": []
   },
   "logging": {
