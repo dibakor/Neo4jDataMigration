@@ -177,6 +177,21 @@ def get_all_relationship_types(conn: Neo4jConnection) -> List[str]:
     return [record["relationshipType"] for record in result]
 
 
+def get_relationship_types_for_labels(
+    conn: Neo4jConnection, labels: List[str]
+) -> List[str]:
+    """Get relationship types where both endpoints have one of the given labels."""
+    label_clause = " OR ".join([f"ANY(l IN labels(a) WHERE l = '{lbl}')" for lbl in labels])
+    label_clause_b = " OR ".join([f"ANY(l IN labels(b) WHERE l = '{lbl}')" for lbl in labels])
+    query = f"""
+    MATCH (a)-[r]->(b)
+    WHERE ({label_clause}) AND ({label_clause_b})
+    RETURN DISTINCT type(r) AS relType
+    """
+    result = conn.execute_with_retry(query)
+    return [record["relType"] for record in result]
+
+
 def get_indexes(conn: Neo4jConnection) -> List[Dict[str, Any]]:
     """Get all indexes from the database."""
     # Neo4j 4.4 compatible query

@@ -34,6 +34,7 @@ from utils.neo4j_utils import (
     MigrationError,
     get_all_labels,
     get_all_relationship_types,
+    get_relationship_types_for_labels,
     get_indexes,
     get_constraints,
     create_index,
@@ -140,23 +141,32 @@ def migrate_schema(
     source: Neo4jConnection,
     target: Neo4jConnection,
     dry_run: bool = False,
+    labels_filter: Optional[List[str]] = None,
 ) -> None:
-    """Migrate indexes and constraints from source to target."""
+    """Migrate indexes and constraints from source to target.
+
+    If labels_filter is provided, only indexes/constraints for those labels
+    are migrated.
+    """
     logger.info("Migrating schema (indexes and constraints)...")
+
+    filter_set = set(labels_filter) if labels_filter else None
 
     indexes = get_indexes(source)
     for index in indexes:
         if index.get("type") == "LOOKUP":
             continue
 
-        labels = index.get("labelsOrTypes", [])
+        index_labels = index.get("labelsOrTypes", [])
         properties = index.get("properties", [])
 
-        if labels and properties:
+        if index_labels and properties:
+            if filter_set and index_labels[0] not in filter_set:
+                continue
             try:
                 create_index(
                     target,
-                    labels[0],  # Use first label
+                    index_labels[0],
                     properties,
                     dry_run=dry_run,
                 )
@@ -165,15 +175,17 @@ def migrate_schema(
 
     constraints = get_constraints(source)
     for constraint in constraints:
-        labels = constraint.get("labelsOrTypes", [])
+        constraint_labels = constraint.get("labelsOrTypes", [])
         properties = constraint.get("properties", [])
         constraint_type = constraint.get("type", "")
-        
-        if labels and properties and "UNIQUE" in constraint_type.upper():
+
+        if constraint_labels and properties and "UNIQUE" in constraint_type.upper():
+            if filter_set and constraint_labels[0] not in filter_set:
+                continue
             try:
                 create_constraint(
                     target,
-                    labels[0],
+                    constraint_labels[0],
                     properties,
                     "UNIQUENESS",
                     dry_run=dry_run,
@@ -549,9 +561,12 @@ def main():
         
         # Get labels and relationship types to migrate
         labels = config.LABELS_TO_MIGRATE or get_all_labels(source)
-        rel_types = (
-            config.RELATIONSHIP_TYPES_TO_MIGRATE or get_all_relationship_types(source)
-        )
+        if config.RELATIONSHIP_TYPES_TO_MIGRATE:
+            rel_types = config.RELATIONSHIP_TYPES_TO_MIGRATE
+        elif config.LABELS_TO_MIGRATE:
+            rel_types = get_relationship_types_for_labels(source, labels)
+        else:
+            rel_types = get_all_relationship_types(source)
         
         logger.debug(f"Labels to migrate: {labels}")
         logger.debug(f"Relationship types to migrate: {rel_types}")
@@ -564,7 +579,7 @@ def main():
         
         # Phase 1: Schema Migration
         if not args.skip_schema:
-            migrate_schema(source, target, dry_run)
+            migrate_schema(source, target, dry_run, labels_filter=labels)
         else:
             logger.info("Skipping schema migration (--skip-schema)")
         
